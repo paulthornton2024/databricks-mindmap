@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Databricks Associate Data Engineer Exam Mind-Map Game</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #252E3C;
+        }
+        canvas { 
+            display: none; /* Hidden until start button clicked */
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #FFFFFF;
+            font-family: Arial, sans-serif;
+            z-index: 10;
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #252E3C;
+            color: #FFFFFF;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 500px;
+            font-family: Arial, sans-serif;
+            border: 1px solid #E8ECEF;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 100;
+        }
+        #modal.visible {
+            opacity: 1;
+        }
+        #modal.incorrect {
+            animation: shake 0.3s;
+        }
+        #modal button {
+            margin: 10px;
+            padding: 5px 10px;
+            cursor: pointer;
+            background: #FF3621;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 5px;
+        }
+        #modal button:hover {
+            background: #E8ECEF;
+            color: #252E3C;
+        }
+        #feedback {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #feedback.correct {
+            background: #00C4B4;
+        }
+        #feedback.incorrect {
+            background: #FF3621;
+        }
+        #reset-button, #toggle-autoplay {
+            position: absolute;
+            top: 10px;
+            padding: 5px 10px;
+            background: #FF3621;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+            z-index: 10;
+        }
+        #reset-button {
+            right: 10px;
+        }
+        #toggle-autoplay {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #reset-button:hover, #toggle-autoplay:hover {
+            background: #E8ECEF;
+            color: #252E3C;
+        }
+        #welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #252E3C;
+            color: #FFFFFF;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.3s ease-in-out;
+        }
+        #welcome-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #welcome-screen h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        #welcome-screen p {
+            font-size: 1.2em;
+            max-width: 600px;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        #start-button {
+            padding: 10px 20px;
+            font-size: 1.2em;
+            background: #FF3621;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #start-button:hover {
+            background: #E8ECEF;
+            color: #252E3C;
+        }
+        @keyframes shake {
+            0% { transform: translate(-50%, -50%) translateX(0); }
+            25% { transform: translate(-50%, -50%) translateX(-5px); }
+            50% { transform: translate(-50%, -50%) translateX(5px); }
+            75% { transform: translate(-50%, -50%) translateX(-5px); }
+            100% { transform: translate(-50%, -50%) translateX(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="welcome-screen">
+        <h1>Databricks Data Engineer Exam Mind-Map Game</h1>
+        <p>Explore a 3D mind-map to prepare for the Databricks Certified Data Engineer Associate Exam. Answer 48 quiz questions across 6 domains, track your score, and learn with auto-play or manual controls!</p>
+        <button id="start-button">Start Game</button>
+    </div>
+    <div id="ui">
+        Score: <span id="score">0</span><br>
+        Questions Answered: <span id="progress">0/48</span>
+    </div>
+    <button id="reset-button">Reset Game</button>
+    <button id="toggle-autoplay">Toggle Auto-Play (On)</button>
+    <div id="modal">
+        <h2 id="modal-title"></h2>
+        <p id="modal-content"></p>
+        <div id="quiz" style="display: none;">
+            <p id="quiz-question"></p>
+            <button id="quiz-option1"></button>
+            <button id="quiz-option2"></button>
+            <button id="quiz-option3"></button>
+            <button id="quiz-option4"></button>
+        </div>
+        <div id="feedback">
+            <p id="feedback-result"></p>
+            <p id="feedback-selected"></p>
+            <p id="feedback-correct"></p>
+            <p id="feedback-explanation"></p>
+        </div>
+        <button id="close-modal">Close</button>
+        <button id="continue-button" style="display: none;">Continue</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/geometries/TextGeometry.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x252E3C);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0xFFFFFF, 1, 100);
+        pointLight.position.set(10, 10, 10);
+        scene.add(pointLight);
+
+        // Orbit controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Score and progress tracking
+        let score = 0;
+        const scoreElement = document.getElementById('score');
+        let answeredQuestions = new Set();
+        let answerStatus = new Map();
+        const progressElement = document.getElementById('progress');
+        const totalQuestions = 48;
+
+        // Dragging states
+        let isDragging = false;
+        let draggedNode = null;
+        const dragPlane = new THREE.Plane();
+        const dragOffset = new THREE.Vector3();
+        const dragStates = {};
+
+        // Bounce-back states
+        const bounceStates = {};
+
+        // Hover states
+        let hoveredNode = null;
+
+        // Spinning view states
+        let isSpinning = false; // Start false, enabled after start button
+        let spinAngle = 0;
+        const spinSpeed = 0.0087;
+        const spinDuration = 10;
+        let spinStartTime = Date.now();
+
+        // Auto-play states
+        let isAutoPlaying = true;
+        let isAutoPlayPaused = false;
+        let autoPlayTimeout = null;
+
+        // Flash states
+        const flashStates = {};
+
+        // Modal transition state
+        let isModalTransitioning = false;
+
+        // Camera lock state for question modal
+        let lockedCameraPosition = null;
+
+        // Mind-map nodes data
+        const nodes = [
+            { 
+                id: 'exam', name: 'Data Engineer Exam', position: [0, 0, 0], color: 0xFF3621, size: 1, description: 'Databricks Certified Data Engineer Associate Exam',
+                quizzes: [
+                    { id: 'exam-0', question: 'What is the primary focus of the Databricks Data Engineer Associate Exam?', options: ['Machine learning models', 'Data pipeline development', 'Cluster administration', 'Notebook design'], correct: 1, explanation: 'The exam focuses on building and managing data pipelines using Databricks tools like Delta Lake and Spark.' },
+                    { id: 'exam-1', question: 'How many domains are covered in the Data Engineer Associate Exam?', options: ['Three', 'Four', 'Five', 'Six'], correct: 2, explanation: 'The exam covers five domains: Lakehouse Platform, ELT with Spark SQL & Python, Incremental Data Processing, Production Pipelines, and Data Governance.' },
+                    { id: 'exam-2', question: 'What is the format of the Databricks Data Engineer Associate Exam?', options: ['Essay-based', 'Multiple-choice', 'Coding only', 'Oral presentation'], correct: 1, explanation: 'The exam consists of multiple-choice questions testing knowledge of Databricks tools and concepts.' },
+                    { id: 'exam-3', question: 'Which platform is the Data Engineer Associate Exam based on?', options: ['Apache Hadoop', 'Databricks Lakehouse', 'Snowflake', 'Google BigQuery'], correct: 1, explanation: 'The exam is based on the Databricks Lakehouse Platform, which integrates data lakes and warehouses.' },
+                    { id: 'exam-4', question: 'What is the recommended preparation resource for the Databricks Data Engineer Associate Exam?', options: ['Databricks Community Edition', 'Official Databricks Academy', 'Third-party coding platforms', 'Local Spark installation'], correct: 1, explanation: 'Databricks Academy offers official training courses tailored to the exam, covering all domains.' },
+                    { id: 'exam-5', question: 'Which cloud providers are supported by the Databricks Lakehouse Platform for the exam?', options: ['AWS only', 'AWS and Azure', 'AWS, Azure, and GCP', 'Azure and GCP'], correct: 2, explanation: 'The exam assumes knowledge of Databricks on AWS, Azure, and GCP, as the platform is cloud-agnostic.' },
+                    { id: 'exam-6', question: 'What is the time limit for the Databricks Data Engineer Associate Exam?', options: ['60 minutes', '90 minutes', '120 minutes', '150 minutes'], correct: 2, explanation: 'The exam allows 120 minutes to complete 45 multiple-choice questions.' },
+                    { id: 'exam-7', question: 'Which certification is a prerequisite for the Data Engineer Associate Exam?', options: ['Databricks Data Analyst Associate', 'None', 'Databricks Machine Learning Associate', 'Apache Spark Developer'], correct: 1, explanation: 'No prerequisite certification is required for the Data Engineer Associate Exam.' }
+                ]
+            },
+            { id: 'lakehouse', name: 'Lakehouse Platform (24%)', position: [10, 0, 0], color: 0xD32F2F, size: 0.8, description: 'Covers Lakehouse concepts, platform architecture, and benefits.',
+                quizzes: [
+                    { id: 'lakehouse-0', question: 'What is a benefit of Delta Lake in the Lakehouse Platform?', options: ['Real-time collaboration', 'Batch and streaming workloads', 'Query failure alerts', 'Multi-language support'], correct: 1, explanation: 'Delta Lake supports both batch and streaming workloads, enabling unified processing in the Lakehouse architecture.' },
+                    { id: 'lakehouse-1', question: 'What does the Lakehouse architecture unify?', options: ['Data lakes and data warehouses', 'Cloud and on-premises', 'SQL and NoSQL', 'Batch and ETL'], correct: 0, explanation: 'The Lakehouse architecture combines the flexibility of data lakes with the management features of data warehouses.' },
+                    { id: 'lakehouse-2', question: 'What feature of Delta Lake ensures data integrity?', options: ['Schema enforcement', 'Dynamic partitioning', 'Manual backups', 'Cluster scaling'], correct: 0, explanation: 'Schema enforcement in Delta Lake prevents data corruption by ensuring data adheres to defined schemas.' },
+                    { id: 'lakehouse-3', question: 'What is a key component of the Lakehouse Platform?', options: ['Local storage', 'Unity Catalog', 'External databases', 'Single-user notebooks'], correct: 1, explanation: 'Unity Catalog provides governance and metadata management, a core component of the Lakehouse Platform.' },
+                    { id: 'lakehouse-4', question: 'What does Delta Lake’s time travel feature enable?', options: ['Real-time analytics', 'Querying historical data versions', 'Automatic schema evolution', 'Multi-user collaboration'], correct: 1, explanation: 'Time travel allows querying previous versions of a Delta table, useful for auditing and rollback.' },
+                    { id: 'lakehouse-5', question: 'How does Unity Catalog enhance data discovery in the Lakehouse?', options: ['By automating ETL pipelines', 'Through centralized metadata management', 'By caching queries', 'Via cluster optimization'], correct: 1, explanation: 'Unity Catalog provides a centralized metadata repository, improving data discovery and governance.' },
+                    { id: 'lakehouse-6', question: 'What is a benefit of the Lakehouse’s open architecture?', options: ['Proprietary storage', 'Integration with external tools', 'Single-user access', 'Manual scaling'], correct: 1, explanation: 'The open architecture supports integration with tools like Apache Spark, dbt, and BI platforms.' },
+                    { id: 'lakehouse-7', question: 'What does Photon in the Lakehouse Platform optimize?', options: ['Cluster management', 'Query execution performance', 'Data encryption', 'User authentication'], correct: 1, explanation: 'Photon is a high-performance query engine that accelerates SQL and DataFrame queries.' }
+                ]
+            },
+            { id: 'elt', name: 'ELT with Spark SQL & Python (29%)', position: [-10, 0, 0], color: 0xE57373, size: 0.8, description: 'Building ETL pipelines using Spark SQL and Python.',
+                quizzes: [
+                    { id: 'elt-0', question: 'Which language is used with Spark SQL for ELT in Databricks?', options: ['Java', 'Scala', 'Python', 'R'], correct: 2, explanation: 'Python is widely used with Spark SQL in Databricks for building ELT pipelines due to its simplicity and DataFrame API.' },
+                    { id: 'elt-1', question: 'What is a key feature of Spark SQL in Databricks?', options: ['Object-oriented programming', 'Unified analytics engine', 'Local file storage', 'Manual scaling'], correct: 1, explanation: 'Spark SQL provides a unified analytics engine for processing structured data across batch and streaming workloads.' },
+                    { id: 'elt-2', question: 'How can you optimize Spark SQL queries in Databricks?', options: ['Use manual coding', 'Leverage caching', 'Disable parallelism', 'Reduce cluster size'], correct: 1, explanation: 'Caching intermediate results in Spark SQL reduces computation time for repeated queries.' },
+                    { id: 'elt-3', question: 'What does the DataFrame API in Spark support?', options: ['Static data only', 'Programmatic data manipulation', 'Manual data entry', 'Single-threaded processing'], correct: 1, explanation: 'The DataFrame API allows programmatic manipulation of distributed data, enabling complex ELT workflows.' },
+                    { id: 'elt-4', question: 'What Python library is commonly used with Spark SQL for ELT in Databricks?', options: ['Pandas', 'NumPy', 'PySpark', 'Matplotlib'], correct: 2, explanation: 'PySpark provides the Python API for Spark, enabling ELT with Spark SQL and DataFrames.' },
+                    { id: 'elt-5', question: 'How can you handle missing data in a Spark DataFrame?', options: ['Use dropna() or fillna()', 'Delete rows manually', 'Ignore missing data', 'Use SQL joins'], correct: 0, explanation: 'PySpark’s dropna() removes rows with nulls, and fillna() replaces nulls with values.' },
+                    { id: 'elt-6', question: 'What is a benefit of using Spark SQL’s Catalyst optimizer?', options: ['Manual query planning', 'Automatic query optimization', 'Local data storage', 'Single-threaded execution'], correct: 1, explanation: 'Catalyst optimizes query plans automatically, improving performance without user intervention.' },
+                    { id: 'elt-7', question: 'How can you save a Spark DataFrame as a Delta table in Python?', options: ['df.write.format("delta").save()', 'df.saveAsTable()', 'df.write.csv()', 'df.toDelta()'], correct: 0, explanation: 'The write.format("delta").save() method saves a DataFrame as a Delta table.' }
+                ]
+            },
+            { id: 'incremental', name: 'Incremental Data Processing (22%)', position: [0, 10, 0], color: 0xB0BEC5, size: 0.8, description: 'Processing data incrementally with Structured Streaming.',
+                quizzes: [
+                    { id: 'incremental-0', question: 'What does Structured Streaming in Databricks support?', options: ['Batch processing only', 'Real-time data processing', 'Static data only', 'Manual data entry'], correct: 1, explanation: 'Structured Streaming enables real-time data processing with a high-level API built on Spark SQL.' },
+                    { id: 'incremental-1', question: 'What is a feature of Delta Live Tables?', options: ['Static data storage', 'Incremental ETL pipelines', 'Manual data refresh', 'Single-user access'], correct: 1, explanation: 'Delta Live Tables automates incremental ETL pipelines, simplifying data processing workflows.' },
+                    { id: 'incremental-2', question: 'What trigger mode in Structured Streaming processes data as it arrives?', options: ['Batch', 'Once', 'Continuous', 'Manual'], correct: 2, explanation: 'Continuous trigger mode processes streaming data with low latency as it arrives.' },
+                    { id: 'incremental-3', question: 'What does Auto Loader in Databricks enable?', options: ['Manual data loading', 'Incremental data ingestion', 'Static file processing', 'Cluster termination'], correct: 1, explanation: 'Auto Loader incrementally ingests new data files from cloud storage, streamlining streaming workflows.' },
+                    { id: 'incremental-4', question: 'What is a benefit of Delta Live Tables for incremental processing?', options: ['Manual data refresh', 'Declarative pipeline definitions', 'Static data storage', 'Single-user access'], correct: 1, explanation: 'Delta Live Tables uses declarative syntax to define pipelines, simplifying incremental ETL.' },
+                    { id: 'incremental-5', question: 'How does Structured Streaming handle late-arriving data?', options: ['Ignores it', 'Uses watermarking', 'Requires manual updates', 'Drops the stream'], correct: 1, explanation: 'Watermarking in Structured Streaming defines a threshold to process late data correctly.' },
+                    { id: 'incremental-6', question: 'What does the foreachBatch method in Structured Streaming enable?', options: ['Batch-only processing', 'Custom logic per micro-batch', 'Real-time visualization', 'Cluster scaling'], correct: 1, explanation: 'foreachBatch allows custom processing of each micro-batch in a streaming query.' },
+                    { id: 'incremental-7', question: 'What is a feature of Auto Loader’s cloudFiles option?', options: ['Manual file detection', 'Schema inference and evolution', 'Static file formats', 'Local storage'], correct: 1, explanation: 'Auto Loader’s cloudFiles supports schema inference and evolution for new data files.' }
+                ]
+            },
+            { id: 'pipelines', name: 'Production Pipelines (16%)', position: [0, -10, 0], color: 0x78909C, size: 0.8, description: 'Deploying production-grade data pipelines.',
+                quizzes: [
+                    { id: 'pipelines-0', question: 'What is a key aspect of production pipelines in Databricks?', options: ['Manual data entry', 'Entity permissions', 'Single-user access', 'Local storage'], correct: 1, explanation: 'Entity permissions ensure secure access control in production pipelines.' },
+                    { id: 'pipelines-1', question: 'What tool helps orchestrate production pipelines?', options: ['Notebooks', 'Workflows', 'Clusters', 'Libraries'], correct: 1, explanation: 'Databricks Workflows automates and orchestrates production pipelines for reliability.' },
+                    { id: 'pipelines-2', question: 'What ensures reliability in production pipelines?', options: ['Manual monitoring', 'Error handling and retries', 'Single-node processing', 'Local caching'], correct: 1, explanation: 'Error handling and retries in Databricks Workflows ensure robust pipeline execution.' },
+                    { id: 'pipelines-3', question: 'What can Databricks Jobs schedule?', options: ['Manual tasks', 'Automated workflows', 'Cluster creation only', 'Notebook exports'], correct: 1, explanation: 'Databricks Jobs schedule automated workflows, enabling reliable production pipelines.' },
+                    { id: 'pipelines-4', question: 'What does Databricks Workflows support for production pipelines?', options: ['Manual data entry', 'Multi-task orchestration', 'Single-notebook execution', 'Local storage'], correct: 1, explanation: 'Workflows orchestrates multiple tasks (notebooks, SQL, jobs) for production pipelines.' },
+                    { id: 'pipelines-5', question: 'How can you monitor pipeline failures in Databricks?', options: ['Manual logs', 'Alerts and notifications', 'Local scripts', 'Single-user dashboards'], correct: 1, explanation: 'Databricks supports alerts and notifications to monitor pipeline failures.' },
+                    { id: 'pipelines-6', question: 'What is a benefit of using Delta Lake in production pipelines?', options: ['Manual backups', 'ACID transactions', 'Single-user access', 'Local caching'], correct: 1, explanation: 'Delta Lake provides ACID transactions, ensuring data reliability in production.' },
+                    { id: 'pipelines-7', question: 'What does the Databricks REST API enable for pipelines?', options: ['Manual job creation', 'Programmatic job management', 'Local data processing', 'Single-threaded tasks'], correct: 1, explanation: 'The REST API allows programmatic management of jobs and pipelines.' }
+                ]
+            },
+            { id: 'governance', name: 'Data Governance (9%)', position: [0, 0, 10], color: 0x455A64, size: 0.8, description: 'Managing data security and permissions.',
+                quizzes: [
+                    { id: 'governance-0', question: 'How can you mark a table as containing PII in Databricks?', options: ['Use a comment during table creation', 'Add a tag in the UI', 'Rename the table', 'Use a separate schema'], correct: 0, explanation: 'Adding a comment during table creation can mark a table as containing PII for governance purposes.' },
+                    { id: 'governance-1', question: 'What does Unity Catalog manage in Databricks?', options: ['Cluster configurations', 'Data access and governance', 'Notebook versioning', 'Job scheduling'], correct: 1, explanation: 'Unity Catalog centralizes data access and governance, managing permissions and metadata.' },
+                    { id: 'governance-2', question: 'What feature of Unity Catalog enforces access control?', options: ['Dynamic views', 'Static schemas', 'Manual audits', 'Cluster policies'], correct: 0, explanation: 'Dynamic views in Unity Catalog enforce fine-grained access control based on user permissions.' },
+                    { id: 'governance-3', question: 'What is a benefit of data lineage in Databricks?', options: ['Faster queries', 'Tracks data origin and transformations', 'Reduces storage costs', 'Simplifies coding'], correct: 1, explanation: 'Data lineage tracks the origin and transformations of data, aiding governance and compliance.' },
+                    { id: 'governance-4', question: 'What does Delta Sharing enable in Databricks?', options: ['Local data storage', 'Secure cross-organization data sharing', 'Manual backups', 'Single-user access'], correct: 1, explanation: 'Delta Sharing is an open protocol for secure data sharing across organizations.' },
+                    { id: 'governance-5', question: 'How can Unity Catalog enforce data access policies?', options: ['Manual audits', 'Role-based access control (RBAC)', 'Local scripts', 'Single-user permissions'], correct: 1, explanation: 'Unity Catalog uses RBAC to enforce fine-grained access policies.' },
+                    { id: 'governance-6', question: 'What is a feature of Unity Catalog’s data lineage?', options: ['Manual tracking', 'Automated dependency tracking', 'Local storage', 'Single-threaded processing'], correct: 1, explanation: 'Data lineage automatically tracks data dependencies and transformations.' },
+                    { id: 'governance-7', question: 'How can you audit data access in Databricks?', options: ['Manual logs', 'Unity Catalog audit logs', 'Local scripts', 'Single-user reports'], correct: 1, explanation: 'Unity Catalog provides audit logs to track data access and changes.' }
+                ]
+            }
+        ];
+
+        // Connections
+        const connections = [
+            ['exam', 'lakehouse'], ['exam', 'elt'], ['exam', 'incremental'], ['exam', 'pipelines'], ['exam', 'governance']
+        ];
+
+        // Load font
+        const fontLoader = new THREE.FontLoader();
+        let font;
+        fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (loadedFont) => {
+            font = loadedFont;
+            createNodes();
+        });
+
+        // Node meshes
+        const nodeMeshes = {};
+        const nodeLabels = {};
+        let connectionLines = [];
+
+        function createNodes() {
+            nodes.forEach(node => {
+                const geometry = new THREE.SphereGeometry(node.size, 32, 32);
+                const material = new THREE.MeshPhongMaterial({ color: node.color, shininess: 100 });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(...node.position);
+                mesh.userData = node;
+                scene.add(mesh);
+                nodeMeshes[node.id] = mesh;
+                dragStates[node.id] = { originalPosition: mesh.position.clone() };
+
+                if (font) {
+                    const textGeometry = new THREE.TextGeometry(node.name, {
+                        font: font,
+                        size: 0.3,
+                        height: 0.05
+                    });
+                    const textMaterial = new THREE.MeshPhongMaterial({ color: 0xFFFFFF });
+                    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                    textMesh.position.set(node.position[0], node.position[1] + node.size + 0.4, node.position[2]);
+                    textMesh.userData = { isLabel: true, parentNode: node.id };
+                    scene.add(textMesh);
+                    nodeLabels[node.id] = textMesh;
+                }
+            });
+
+            connections.forEach(([id1, id2]) => {
+                const pos1 = nodeMeshes[id1].position;
+                const pos2 = nodeMeshes[id2].position;
+                const material = new THREE.LineBasicMaterial({ color: 0xE8ECEF });
+                const geometry = new THREE.BufferGeometry().setFromPoints([pos1.clone(), pos2.clone()]);
+                const line = new THREE.Line(geometry, material);
+                scene.add(line);
+                connectionLines.push({ id1, id2, line });
+            });
+        }
+
+        // Question nodes
+        let questionNodes = [];
+        let questionNodeMeshes = {};
+        let questionNodeLabels = {};
+
+        function clearQuestionNodes() {
+            questionNodes.forEach(node => {
+                if (questionNodeMeshes[node.id]) scene.remove(questionNodeMeshes[node.id]);
+                if (questionNodeLabels[node.id]) scene.remove(questionNodeLabels[node.id]);
+                if (node.line) scene.remove(node.line);
+                delete flashStates[node.id];
+            });
+            questionNodes = [];
+            questionNodeMeshes = {};
+            questionNodeLabels = {};
+        }
+
+        function createQuestionNodes(domainNode) {
+            clearQuestionNodes();
+            if (!domainNode.quizzes) return;
+
+            const radius = 5;
+            const center = domainNode.position;
+            domainNode.quizzes.forEach((quiz, index) => {
+                const angle = (index / domainNode.quizzes.length) * 2 * Math.PI;
+                const x = center[0] + radius * Math.cos(angle);
+                const y = center[1] + radius * Math.sin(angle);
+                const z = center[2];
+
+                const node = {
+                    id: `question-${domainNode.id}-${index}`,
+                    name: `Q${index + 1}`,
+                    position: [x, y, z],
+                    color: answerStatus.get(quiz.id) === 'correct' ? 0x00C4B4 : 0xEF5350,
+                    size: 0.3,
+                    quiz: quiz,
+                    parent: domainNode.id
+                };
+
+                const geometry = new THREE.SphereGeometry(node.size, 16, 16);
+                const material = new THREE.MeshPhongMaterial({ color: node.color, shininess: 100 });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.position.set(...node.position);
+                mesh.userData = node;
+                scene.add(mesh);
+                questionNodes.push(node);
+                questionNodeMeshes[node.id] = mesh;
+                dragStates[node.id] = { originalPosition: mesh.position.clone() };
+
+                if (font) {
+                    const textGeometry = new THREE.TextGeometry(node.name, {
+                        font: font,
+                        size: 0.2,
+                        height: 0.03
+                    });
+                    const textMaterial = new THREE.MeshPhongMaterial({ color: 0xFFFFFF });
+                    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+                    textMesh.position.set(node.position[0], node.position[1] + node.size + 0.3, node.position[2]);
+                    textMesh.userData = { isLabel: true, parentNode: node.id };
+                    scene.add(textMesh);
+                    questionNodeLabels[node.id] = textMesh;
+                }
+
+                const lineMaterial = new THREE.LineBasicMaterial({ color: 0xE8ECEF });
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                    new THREE.Vector3(...center),
+                    new THREE.Vector3(...node.position)
+                ]);
+                const line = new THREE.Line(lineGeometry, lineMaterial);
+                scene.add(line);
+                node.line = line;
+            });
+        }
+
+        function updateBounce() {
+            Object.keys(bounceStates).forEach(id => {
+                const state = bounceStates[id];
+                const mesh = nodeMeshes[id] || questionNodeMeshes[id];
+                if (!mesh) return;
+                const target = dragStates[id].originalPosition;
+                const k = 0.5;
+                const d = 0.1;
+                const dt = 1 / 60;
+
+                const acc = new THREE.Vector3()
+                    .subVectors(target, mesh.position)
+                    .multiplyScalar(k)
+                    .sub(state.velocity.clone().multiplyScalar(d));
+                state.velocity.add(acc.clone().multiplyScalar(dt));
+                mesh.position.add(state.velocity.clone().multiplyScalar(dt));
+
+                const distance = mesh.position.distanceTo(target);
+                if (distance < 0.01 && state.velocity.length() < 0.01) {
+                    mesh.position.copy(target);
+                    delete bounceStates[id];
+                }
+
+                const label = nodeLabels[id] || questionNodeLabels[id];
+                if (label) {
+                    label.position.set(
+                        mesh.position.x,
+                        mesh.position.y + mesh.userData.size + (id.startsWith('question') ? 0.3 : 0.4),
+                        mesh.position.z
+                    );
+                }
+
+                if (id.startsWith('question')) {
+                    const node = questionNodes.find(n => n.id === id);
+                    if (node && node.line) {
+                        const parentPos = nodeMeshes[node.parent].position;
+                        const geometry = new THREE.BufferGeometry().setFromPoints([parentPos, mesh.position]);
+                        node.line.geometry.dispose();
+                        node.line.geometry = geometry;
+                    }
+                }
+            });
+
+            connectionLines.forEach(({ id1, id2, line }) => {
+                const pos1 = nodeMeshes[id1].position;
+                const pos2 = nodeMeshes[id2].position;
+                const geometry = new THREE.BufferGeometry().setFromPoints([pos1, pos2]);
+                line.geometry.dispose();
+                line.geometry = geometry;
+            });
+        }
+
+        function updateHover() {
+            if (isDragging || modal.style.display === 'block') return;
+            mouse.x = (mouse.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(mouse.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([...Object.values(nodeMeshes), ...Object.values(questionNodeMeshes)]);
+            
+            if (hoveredNode) {
+                const mesh = nodeMeshes[hoveredNode.id] || questionNodeMeshes[hoveredNode.id];
+                if (mesh && !flashStates[hoveredNode.id]) {
+                    mesh.scale.set(1, 1, 1);
+                    mesh.material.emissive.setHex(0x000000);
+                    const label = nodeLabels[hoveredNode.id] || questionNodeLabels[hoveredNode.id];
+                    if (label) label.scale.set(1, 1, 1);
+                }
+                hoveredNode = null;
+            }
+
+            if (intersects.length > 0) {
+                const mesh = intersects[0].object;
+                const id = mesh.userData.id;
+                if (!flashStates[id]) {
+                    hoveredNode = { id };
+                    mesh.scale.set(1.1, 1.1, 1.1);
+                    mesh.material.emissive.setHex(0x333333);
+                    const label = nodeLabels[id] || questionNodeLabels[id];
+                    if (label) label.scale.set(1.2, 1.2, 1.2);
+                }
+            }
+        }
+
+        function flashNode(mesh) {
+            if (!mesh || !isAutoPlaying || !scene.children.includes(mesh)) return;
+            const id = mesh.userData.id;
+            if (flashStates[id]) return;
+
+            flashStates[id] = { progress: 0, duration: 0.5 };
+            const baseScale = 1.0;
+            const maxScale = 1.3;
+
+            const animateFlash = () => {
+                const state = flashStates[id];
+                if (!state || !mesh || !scene.children.includes(mesh)) {
+                    delete flashStates[id];
+                    return;
+                }
+
+                state.progress += 1 / (state.duration * 60);
+                const t = Math.min(state.progress, 1);
+                const scale = baseScale + (maxScale - baseScale) * Math.sin(t * Math.PI);
+                mesh.scale.set(scale, scale, scale);
+
+                const label = nodeLabels[id] || questionNodeLabels[id];
+                if (label && scene.children.includes(label)) {
+                    const labelScale = id.startsWith('question') ? 1.0 + (scale - 1.0) * 0.5 : 1.0 + (scale - 1.0) * 0.8;
+                    label.scale.set(labelScale, labelScale, labelScale);
+                }
+
+                if (t < 1) {
+                    requestAnimationFrame(animateFlash);
+                } else {
+                    mesh.scale.set(1, 1, 1);
+                    if (label && scene.children.includes(label)) label.scale.set(1, 1, 1);
+                    delete flashStates[id];
+                }
+            };
+            requestAnimationFrame(animateFlash);
+        }
+
+        // Raycaster
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Modal elements
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContent = document.getElementById('modal-content');
+        const closeModal = document.getElementById('close-modal');
+        const continueButton = document.getElementById('continue-button');
+        const quizDiv = document.getElementById('quiz');
+        const quizQuestion = document.getElementById('quiz-question');
+        const quizOptions = [
+            document.getElementById('quiz-option1'),
+            document.getElementById('quiz-option2'),
+            document.getElementById('quiz-option3'),
+            document.getElementById('quiz-option4')
+        ];
+        const feedbackDiv = document.getElementById('feedback');
+        const feedbackResult = document.getElementById('feedback-result');
+        const feedbackSelected = document.getElementById('feedback-selected');
+        const feedbackCorrect = document.getElementById('feedback-correct');
+        const feedbackExplanation = document.getElementById('feedback-explanation');
+
+        function simulateNodeClick(selectedNode) {
+            if (!controls || !camera || !selectedNode || !selectedNode.userData || isDragging || modal.style.display === 'block' || isModalTransitioning) return;
+            const nodeData = selectedNode.userData;
+            if (isAutoPlaying) flashNode(selectedNode);
+
+            if (nodeData.quiz) {
+                isSpinning = false; // Stop spinning
+                controls.enabled = false; // Disable OrbitControls
+                lockedCameraPosition = camera.position.clone(); // Lock camera position
+                const parentNode = nodes.find(n => n.id === nodeData.parent) || nodeData;
+                modalTitle.textContent = `Quiz: ${parentNode.name}`;
+                modalContent.textContent = '';
+                quizDiv.style.display = 'block';
+                feedbackDiv.style.display = 'none';
+                quizQuestion.textContent = nodeData.quiz.question;
+                quizOptions.forEach((button, i) => {
+                    button.textContent = nodeData.quiz.options[i];
+                    button.onclick = () => {
+                        if (!answeredQuestions.has(nodeData.quiz.id)) {
+                            answeredQuestions.add(nodeData.quiz.id);
+                            progressElement.textContent = `${answeredQuestions.size}/${totalQuestions}`;
+                        }
+                        if (questionNodeMeshes[nodeData.id]) {
+                            questionNodeMeshes[nodeData.id].material.color.setHex(i === nodeData.quiz.correct ? 0x00C4B4 : 0xEF5350);
+                        }
+                        answerStatus.set(nodeData.quiz.id, i === nodeData.quiz.correct ? 'correct' : 'incorrect');
+                        quizDiv.style.display = 'none';
+                        feedbackDiv.style.display = 'block';
+                        closeModal.style.display = 'none';
+                        continueButton.style.display = 'block';
+                        if (i === nodeData.quiz.correct) {
+                            score += 10;
+                            scoreElement.textContent = score;
+                            feedbackDiv.className = 'correct';
+                            feedbackResult.textContent = 'Correct!';
+                            feedbackSelected.textContent = `Your answer: ${nodeData.quiz.options[i]}`;
+                            feedbackCorrect.textContent = '';
+                            feedbackExplanation.textContent = nodeData.quiz.explanation;
+                            modal.classList.remove('incorrect');
+                        } else {
+                            feedbackDiv.className = 'incorrect';
+                            feedbackResult.textContent = 'Incorrect';
+                            feedbackSelected.textContent = `Your answer: ${nodeData.quiz.options[i]}`;
+                            feedbackCorrect.textContent = `Correct answer: ${nodeData.quiz.options[nodeData.quiz.correct]}`;
+                            feedbackExplanation.textContent = nodeData.quiz.explanation;
+                            modal.classList.add('incorrect');
+                        }
+                    };
+                });
+            } else {
+                modalTitle.textContent = nodeData.name;
+                modalContent.textContent = nodeData.description;
+                quizDiv.style.display = 'none';
+                feedbackDiv.style.display = 'none';
+                closeModal.style.display = 'block';
+                continueButton.style.display = 'none';
+                if (nodeData.quizzes) {
+                    setTimeout(() => createQuestionNodes({...nodeData, position: nodeData.position}), 1000); // Delay for modal transition
+                } else {
+                    clearQuestionNodes();
+                }
+            }
+            isModalTransitioning = true;
+            modal.style.display = 'block';
+            setTimeout(() => {
+                modal.classList.add('visible');
+                isModalTransitioning = false;
+            }, 10);
+        }
+
+        // Clear auto-play timeouts
+        function clearAutoPlayTimeouts() {
+            if (autoPlayTimeout) {
+                clearTimeout(autoPlayTimeout);
+                autoPlayTimeout = null;
+            }
+        }
+
+        function autoPlay() {
+            if (!isAutoPlaying || isAutoPlayPaused || answeredQuestions.size >= totalQuestions || modal.style.display === 'block' || isModalTransitioning) {
+                isAutoPlaying = false;
+                clearAutoPlayTimeouts();
+                document.getElementById('toggle-autoplay').textContent = 'Toggle Auto-Play (Off)';
+                return;
+            }
+
+            isAutoPlayPaused = true;
+
+            for (let nodeIndex = 0; nodeIndex < nodes.length; nodeIndex++) {
+                const node = nodes[nodeIndex];
+                if (node.quizzes.some(quiz => !answeredQuestions.has(quiz.id))) {
+                    const mainNode = nodeMeshes[node.id];
+                    if (!mainNode) {
+                        console.warn(`[${new Date().toISOString()}] Main node ${node.id} not found`);
+                        isAutoPlayPaused = false;
+                        autoPlay();
+                        return;
+                    }
+
+                    simulateNodeClick(mainNode);
+                    clearAutoPlayTimeouts();
+                    autoPlayTimeout = setTimeout(() => {
+                        for (let quizIndex = 0; quizIndex < node.quizzes.length; quizIndex++) {
+                            const quiz = node.quizzes[quizIndex];
+                            if (!answeredQuestions.has(quiz.id)) {
+                                const questionNodeId = `question-${node.id}-${quizIndex}`;
+                                const questionNode = questionNodeMeshes[questionNodeId];
+                                if (!questionNode) {
+                                    console.warn(`[${new Date().toISOString()}] Question node ${questionNodeId} not found for quiz ${quiz.id}`);
+                                    setTimeout(() => {
+                                        isAutoPlayPaused = false;
+                                        autoPlay();
+                                    }, 750);
+                                    return;
+                                }
+
+                                simulateNodeClick(questionNode);
+                                clearAutoPlayTimeouts();
+                                autoPlayTimeout = setTimeout(() => {
+                                    let retryCount = 0;
+                                    const maxRetries = 5;
+                                    const retryQuiz = () => {
+                                        if (quizDiv.style.display !== 'block') {
+                                            if (retryCount < maxRetries) {
+                                                retryCount++;
+                                                console.warn(`[${new Date().toISOString()}] Quiz modal not open for ${questionNodeId}, retry ${retryCount}/${maxRetries}`);
+                                                setTimeout(retryQuiz, 750);
+                                                return;
+                                            }
+                                            console.warn(`[${new Date().toISOString()}] Quiz modal failed to open for ${questionNodeId} after ${maxRetries} retries`);
+                                            isAutoPlayPaused = false;
+                                            autoPlay();
+                                            return;
+                                        }
+                                        const correctIndex = quiz.correct;
+                                        if (!quizOptions[correctIndex]) {
+                                            console.warn(`[${new Date().toISOString()}] Quiz option ${correctIndex} not found for ${quiz.id}`);
+                                            isAutoPlayPaused = false;
+                                            autoPlay();
+                                            return;
+                                        }
+                                        quizOptions[correctIndex].click();
+                                        clearAutoPlayTimeouts();
+                                        autoPlayTimeout = setTimeout(() => {
+                                            if (continueButton.style.display !== 'block') {
+                                                if (retryCount < maxRetries) {
+                                                    retryCount++;
+                                                    console.warn(`[${new Date().toISOString()}] Continue button not visible for ${questionNodeId}, retry ${retryCount}/${maxRetries}`);
+                                                    setTimeout(retryQuiz, 750);
+                                                    return;
+                                                }
+                                                console.warn(`[${new Date().toISOString()}] Continue button failed for ${questionNodeId} after ${maxRetries} retries`);
+                                                isAutoPlayPaused = false;
+                                                autoPlay();
+                                                return;
+                                            }
+                                            continueButton.click();
+                                            clearAutoPlayTimeouts();
+                                            autoPlayTimeout = setTimeout(() => {
+                                                isAutoPlayPaused = false;
+                                                delete flashStates[questionNodeId];
+                                                autoPlay();
+                                            }, 750);
+                                        }, 2000);
+                                    };
+                                    retryQuiz();
+                                }, 2000);
+                                return;
+                            }
+                        }
+                        isAutoPlayPaused = false;
+                        autoPlay();
+                    }, 2500);
+                    return;
+                }
+            }
+
+            isAutoPlaying = false;
+            clearAutoPlayTimeouts();
+            document.getElementById('toggle-autoplay').textContent = 'Toggle Auto-Play (Off)';
+        }
+
+        function startAutoPlay() {
+            if (isAutoPlaying && !isAutoPlayPaused) {
+                autoPlay();
+            }
+        }
+
+        // Welcome screen handling
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const startButton = document.getElementById('start-button');
+        startButton.addEventListener('click', () => {
+            welcomeScreen.classList.add('hidden');
+            setTimeout(() => {
+                welcomeScreen.style.display = 'none';
+                renderer.domElement.style.display = 'block'; // Show canvas
+                isSpinning = true; // Start spinning
+                spinStartTime = Date.now();
+            }, 300); // Match CSS transition duration
+        });
+
+        const toggleAutoPlayButton = document.getElementById('toggle-autoplay');
+        toggleAutoPlayButton.addEventListener('click', () => {
+            isAutoPlaying = !isAutoPlaying;
+            toggleAutoPlayButton.textContent = `Toggle Auto-Play (${isAutoPlaying ? 'On' : 'Off'})`;
+            if (isAutoPlaying) {
+                isAutoPlayPaused = false;
+                autoPlay();
+            } else {
+                isAutoPlayPaused = false;
+                clearAutoPlayTimeouts();
+            }
+        });
+
+        const resetButton = document.getElementById('reset-button');
+        resetButton.addEventListener('click', () => {
+            score = 0;
+            scoreElement.textContent = score;
+            answeredQuestions.clear();
+            answerStatus.clear();
+            progressElement.textContent = `0/${totalQuestions}`;
+            clearQuestionNodes();
+            Object.keys(nodeMeshes).forEach(id => {
+                nodeMeshes[id].position.set(...nodes.find(n => n.id === id).position);
+                nodeMeshes[id].scale.set(1, 1, 1);
+                dragStates[id].originalPosition = nodeMeshes[id].position.clone();
+                if (nodeLabels[id]) {
+                    nodeLabels[id].position.set(
+                        nodeMeshes[id].position.x,
+                        nodeMeshes[id].position.y + nodeMeshes[id].userData.size + 0.4,
+                        nodeMeshes[id].position.z
+                    );
+                    nodeLabels[id].scale.set(1, 1, 1);
+                }
+            });
+            connectionLines.forEach(({ id1, id2, line }) => {
+                const pos1 = nodeMeshes[id1].position;
+                const pos2 = nodeMeshes[id2].position;
+                const geometry = new THREE.BufferGeometry().setFromPoints([pos1, pos2]);
+                line.geometry.dispose();
+                line.geometry = geometry;
+            });
+            camera.position.set(0, 0, 20);
+            camera.lookAt(0, 0, 0);
+            isAutoPlaying = true;
+            isAutoPlayPaused = false;
+            clearAutoPlayTimeouts();
+            toggleAutoPlayButton.textContent = 'Toggle Auto-Play (On)';
+            Object.keys(flashStates).forEach(id => delete flashStates[id]);
+            isModalTransitioning = false;
+            isSpinning = true; // Restart spinning
+            spinStartTime = Date.now();
+            controls.enabled = true; // Ensure OrbitControls enabled
+            lockedCameraPosition = null; // Clear locked position
+        });
+
+        function stopSpinningAndAutoPlay() {
+            isSpinning = false;
+            isAutoPlaying = false;
+            isAutoPlayPaused = false;
+            clearAutoPlayTimeouts();
+            toggleAutoPlayButton.textContent = 'Toggle Auto-Play (Off)';
+        }
+
+        window.addEventListener('mousedown', (event) => {
+            stopSpinningAndAutoPlay();
+            if (modal.style.display === 'block') return;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([...Object.values(nodeMeshes), ...Object.values(questionNodeMeshes)]);
+            if (intersects.length > 0) {
+                isDragging = true;
+                draggedNode = intersects[0].object;
+                controls.enabled = false;
+
+                const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
+                dragPlane.setFromNormalAndCoplanarPoint(normal, draggedNode.position);
+                const intersect = raycaster.ray.intersectPlane(dragPlane, new THREE.Vector3());
+                if (intersect) {
+                    dragOffset.copy(intersect).sub(draggedNode.position);
+                }
+            }
+        });
+
+        window.addEventListener('mousemove', (event) => {
+            mouse.clientX = event.clientX;
+            mouse.clientY = event.clientY;
+            if (isDragging) {
+                stopSpinningAndAutoPlay();
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const intersect = raycaster.ray.intersectPlane(dragPlane, new THREE.Vector3());
+                if (intersect) {
+                    const newPosition = intersect.sub(dragOffset);
+                    const id = draggedNode.userData.id;
+                    draggedNode.position.copy(newPosition);
+                    dragStates[id].originalPosition.copy(newPosition);
+
+                    const label = nodeLabels[id] || questionNodeLabels[id];
+                    if (label) {
+                        label.position.set(
+                            draggedNode.position.x,
+                            draggedNode.position.y + draggedNode.userData.size + (id.startsWith('question') ? 0.3 : 0.4),
+                            draggedNode.position.z
+                        );
+                    }
+
+                    // Move child question nodes if dragging a main node
+                    if (!id.startsWith('question')) {
+                        questionNodes.forEach(node => {
+                            if (node.parent === id) {
+                                const mesh = questionNodeMeshes[node.id];
+                                if (!mesh) return;
+                                const offset = mesh.position.clone().sub(nodeMeshes[id].position);
+                                mesh.position.copy(newPosition.clone().add(offset));
+                                dragStates[node.id].originalPosition.copy(mesh.position);
+
+                                const qLabel = questionNodeLabels[node.id];
+                                if (qLabel) {
+                                    qLabel.position.set(
+                                        mesh.position.x,
+                                        mesh.position.y + node.size + 0.3,
+                                        mesh.position.z
+                                    );
+                                }
+
+                                if (node.line) {
+                                    const geometry = new THREE.BufferGeometry().setFromPoints([
+                                        newPosition,
+                                        mesh.position
+                                    ]);
+                                    node.line.geometry.dispose();
+                                    node.line.geometry = geometry;
+                                }
+                            }
+                        });
+                    } else {
+                        // Update line for question node
+                        const node = questionNodes.find(n => n.id === id);
+                        if (node && node.line) {
+                            const parentPos = nodeMeshes[node.parent].position;
+                            const geometry = new THREE.BufferGeometry().setFromPoints([parentPos, draggedNode.position]);
+                            node.line.geometry.dispose();
+                            node.line.geometry = geometry;
+                        }
+                    }
+
+                    connectionLines.forEach(({ id1, id2, line }) => {
+                        const pos1 = nodeMeshes[id1].position;
+                        const pos2 = nodeMeshes[id2].position;
+                        const geometry = new THREE.BufferGeometry().setFromPoints([pos1, pos2]);
+                        line.geometry.dispose();
+                        line.geometry = geometry;
+                    });
+                }
+            } else {
+                updateHover();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                controls.enabled = true;
+                if (draggedNode) {
+                    const id = draggedNode.userData.id;
+                    bounceStates[id] = { velocity: new THREE.Vector3() };
+                    if (!id.startsWith('question')) {
+                        questionNodes.forEach(node => {
+                            if (node.parent === id) {
+                                bounceStates[node.id] = { velocity: new THREE.Vector3() };
+                            }
+                        });
+                    }
+                    draggedNode = null;
+                }
+            }
+        });
+
+        window.addEventListener('click', (event) => {
+            stopSpinningAndAutoPlay();
+            if (isDragging || modal.style.display === 'block') return;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([...Object.values(nodeMeshes), ...Object.values(questionNodeMeshes)]);
+            if (intersects.length > 0) {
+                simulateNodeClick(intersects[0].object);
+            }
+        });
+
+        closeModal.addEventListener('click', () => {
+            isModalTransitioning = true;
+            modal.style.display = 'none';
+            modal.classList.remove('visible', 'incorrect');
+            quizDiv.style.display = 'none';
+            feedbackDiv.style.display = 'none';
+            if (controls) {
+                controls.enabled = true; // Re-enable OrbitControls
+            }
+            lockedCameraPosition = null; // Clear locked camera position
+            setTimeout(() => { isModalTransitioning = false; }, 500);
+        });
+
+        continueButton.addEventListener('click', () => {
+            isModalTransitioning = true;
+            modal.style.display = 'none';
+            modal.classList.remove('visible', 'incorrect');
+            quizDiv.style.display = 'none';
+            feedbackDiv.style.display = 'none';
+            if (controls) {
+                controls.enabled = true; // Re-enable OrbitControls
+            }
+            lockedCameraPosition = null; // Clear locked camera position
+            setTimeout(() => { isModalTransitioning = false; }, 500);
+        });
+
+        camera.position.set(0, 0, 20);
+        camera.lookAt(0, 0, 0);
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Lock camera during question modal
+            if (modal && quizDiv && modal.style.display === 'block' && quizDiv.style.display === 'block' && lockedCameraPosition) {
+                camera.position.copy(lockedCameraPosition);
+                camera.lookAt(0, 0, 0);
+            } else {
+                // Normal spinning behavior
+                if (isSpinning) {
+                    const elapsed = (Date.now() - spinStartTime) / 1000;
+                    if (elapsed > spinDuration) {
+                        isSpinning = false;
+                        startAutoPlay();
+                    } else {
+                        spinAngle += spinSpeed;
+                        const radius = 20;
+                        camera.position.x = radius * Math.sin(spinAngle);
+                        camera.position.z = radius * Math.cos(spinAngle);
+                        camera.position.y = 0;
+                        camera.lookAt(0, 0, 0);
+                    }
+                }
+
+                // Update controls only if not locked
+                if (controls && controls.enabled) {
+                    controls.update();
+                }
+            }
+
+            Object.values(nodeLabels).forEach(label => label.lookAt(camera.position));
+            Object.values(questionNodeLabels).forEach(label => label.lookAt(camera.position));
+
+            updateBounce();
+            updateHover();
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
